@@ -1,0 +1,30 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { api } from '../services/api';
+import { StateMessage } from '../components/StateMessage';
+import { Modal } from '../components/Modal';
+import { EditModal } from '../components/EditModal';
+
+type Profit = { mes: string; receitas: number; despesas: number; lucro: number };
+type Expense = { id: string; descricao: string; categoria: string; valor: number; data_despesa: string; fornecedor?: string | null };
+const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+export function Finance() {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [form, setForm] = useState({ descricao: '', categoria: 'material', valor: '', data_despesa: new Date().toISOString().slice(0, 10), fornecedor: '' });
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: ['finance'], queryFn: () => api<{ data: Profit[] }>('/relatorios/financeiro') });
+  const expenses = useQuery({ queryKey: ['expenses'], queryFn: () => api<{ data: Expense[] }>('/despesas?limit=100') });
+  const mutation = useMutation({ mutationFn: () => api('/despesas', { method: 'POST', body: JSON.stringify({ ...form, valor: Number(form.valor), fornecedor: form.fornecedor || null }) }), onSuccess: () => { void client.invalidateQueries({ queryKey: ['finance', 'expenses'] }); setOpen(false); } });
+  const editMutation = useMutation({ mutationFn: () => api(`/despesas/${editing?.id}`, { method: 'PATCH', body: JSON.stringify(editing) }), onSuccess: () => { void client.invalidateQueries({ queryKey: ['finance', 'expenses'] }); setEditing(null); } });
+  if (query.isLoading) return <StateMessage title="Carregando financeiro..." loading />;
+  if (query.isError) return <StateMessage title="Não foi possível carregar o financeiro" description={query.error.message} />;
+  if (!query.data) return <StateMessage title="Financeiro vazio" description="Ainda não há movimentações." />;
+  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">Entradas e saídas</span><h2>Financeiro</h2></div><button className="primary-button" onClick={() => setOpen(true)}>Nova despesa</button></div>
+    <Modal title="Nova despesa" description="Registre custos da Mabie para acompanhar o lucro." open={open} onClose={() => setOpen(false)} onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }} submitLabel="Salvar despesa" pending={mutation.isPending}><div className="form-grid"><label>Descrição<input required value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} /></label><label>Categoria<select value={form.categoria} onChange={(event) => setForm({ ...form, categoria: event.target.value })}><option value="material">Material</option><option value="equipamento">Equipamento</option><option value="contas">Contas</option><option value="transporte">Transporte</option><option value="outros">Outros</option></select></label><label>Valor<input required min="0.01" step="0.01" type="number" value={form.valor} onChange={(event) => setForm({ ...form, valor: event.target.value })} /></label><label>Data<input required type="date" value={form.data_despesa} onChange={(event) => setForm({ ...form, data_despesa: event.target.value })} /></label><label className="field-wide">Fornecedor<input value={form.fornecedor} onChange={(event) => setForm({ ...form, fornecedor: event.target.value })} /></label></div></Modal>
+    <EditModal title="Editar despesa" open={editing !== null} onClose={() => setEditing(null)} onSubmit={(event) => { event.preventDefault(); editMutation.mutate(); }} pending={editMutation.isPending}><div className="form-grid"><label>Descrição<input required value={editing?.descricao ?? ''} onChange={(event) => setEditing((current) => current ? { ...current, descricao: event.target.value } : current)} /></label><label>Categoria<select value={editing?.categoria ?? 'outros'} onChange={(event) => setEditing((current) => current ? { ...current, categoria: event.target.value } : current)}><option value="material">Material</option><option value="equipamento">Equipamento</option><option value="contas">Contas</option><option value="transporte">Transporte</option><option value="outros">Outros</option></select></label><label>Valor<input type="number" min="0.01" step="0.01" value={editing?.valor ?? 0} onChange={(event) => setEditing((current) => current ? { ...current, valor: Number(event.target.value) } : current)} /></label><label>Data<input type="date" value={editing?.data_despesa ?? ''} onChange={(event) => setEditing((current) => current ? { ...current, data_despesa: event.target.value } : current)} /></label><label className="field-wide">Fornecedor<input value={editing?.fornecedor ?? ''} onChange={(event) => setEditing((current) => current ? { ...current, fornecedor: event.target.value } : current)} /></label></div></EditModal>
+    <section className="panel"><div className="table-wrap"><table><thead><tr><th>Mês</th><th>Receitas</th><th>Despesas</th><th>Lucro</th></tr></thead><tbody>{query.data.data.map((row) => <tr key={row.mes}><td>{new Date(`${row.mes}T12:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</td><td>{money.format(row.receitas)}</td><td>{money.format(row.despesas)}</td><td className={row.lucro < 0 ? 'negative' : 'positive'}>{money.format(row.lucro)}</td></tr>)}</tbody></table></div></section>
+    <section className="panel"><div className="panel-heading"><h3>Despesas registradas</h3></div><div className="resource-list">{(expenses.data?.data ?? []).map((expense) => <article className="resource-row" key={expense.id}><div><strong>{expense.descricao}</strong><span>{expense.categoria} · {expense.data_despesa}</span></div><div><strong>{money.format(expense.valor)}</strong><button type="button" className="text-button" onClick={() => setEditing(expense)}>Editar</button></div></article>)}</div></section>
+  </div>;
+}

@@ -1,0 +1,2 @@
+import { StateMessage } from '../components/StateMessage';
+export function Placeholder({ title }: { title: string }) { return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">Módulo</span><h2>{title}</h2></div></div><section className="panel"><StateMessage title="Esta tela será habilitada na Fase 4" description="A estrutura de navegação já está pronta." /></section></div>; }

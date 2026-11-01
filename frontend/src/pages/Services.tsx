@@ -1,0 +1,23 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { api } from '../services/api';
+import { ResourceList } from '../components/ResourceList';
+import { Modal } from '../components/Modal';
+import { EditModal } from '../components/EditModal';
+
+type Service = { id: string; nome: string; descricao?: string | null; preco_varejo: number; preco_atacado: number; tempo_medio_dias: number; ativo: boolean };
+const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+export function Services() {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Service | null>(null);
+  const [form, setForm] = useState({ nome: '', descricao: '', preco_varejo: '0', preco_atacado: '0', tempo_medio_dias: '1' });
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: ['services'], queryFn: () => api<{ data: Service[] }>('/servicos?limit=100') });
+  const mutation = useMutation({ mutationFn: () => api('/servicos', { method: 'POST', body: JSON.stringify({ ...form, preco_varejo: Number(form.preco_varejo), preco_atacado: Number(form.preco_atacado), tempo_medio_dias: Number(form.tempo_medio_dias) }) }), onSuccess: () => { void client.invalidateQueries({ queryKey: ['services'] }); setOpen(false); } });
+  const editMutation = useMutation({ mutationFn: () => api(`/servicos/${editing?.id}`, { method: 'PATCH', body: JSON.stringify(editing) }), onSuccess: () => { void client.invalidateQueries({ queryKey: ['services'] }); setEditing(null); } });
+  return <div className="page-stack"><div className="page-heading"><div><span className="eyebrow">Catálogo</span><h2>Serviços e preços</h2></div><button className="primary-button" onClick={() => setOpen(true)}>Novo serviço</button></div>
+    <Modal title="Novo serviço" description="Cadastre uma peça ou serviço de confecção da Mabie." open={open} onClose={() => setOpen(false)} onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }} submitLabel="Salvar serviço" pending={mutation.isPending}><div className="form-grid"><label>Nome<input required value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} /></label><label>Prazo médio (dias)<input required min="0" type="number" value={form.tempo_medio_dias} onChange={(event) => setForm({ ...form, tempo_medio_dias: event.target.value })} /></label><label>Preço pessoa<input required min="0" step="0.01" type="number" value={form.preco_varejo} onChange={(event) => setForm({ ...form, preco_varejo: event.target.value })} /></label><label>Preço empresa<input required min="0" step="0.01" type="number" value={form.preco_atacado} onChange={(event) => setForm({ ...form, preco_atacado: event.target.value })} /></label><label className="field-wide">Descrição<textarea value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} /></label></div></Modal>
+    <EditModal title="Editar serviço" open={editing !== null} onClose={() => setEditing(null)} onSubmit={(event) => { event.preventDefault(); editMutation.mutate(); }} pending={editMutation.isPending}><div className="form-grid"><label>Nome<input required value={editing?.nome ?? ''} onChange={(event) => setEditing((current) => current ? { ...current, nome: event.target.value } : current)} /></label><label>Prazo médio<input type="number" min="0" value={editing?.tempo_medio_dias ?? 0} onChange={(event) => setEditing((current) => current ? { ...current, tempo_medio_dias: Number(event.target.value) } : current)} /></label><label>Preço pessoa<input type="number" min="0" step="0.01" value={editing?.preco_varejo ?? 0} onChange={(event) => setEditing((current) => current ? { ...current, preco_varejo: Number(event.target.value) } : current)} /></label><label>Preço empresa<input type="number" min="0" step="0.01" value={editing?.preco_atacado ?? 0} onChange={(event) => setEditing((current) => current ? { ...current, preco_atacado: Number(event.target.value) } : current)} /></label></div></EditModal>
+    <ResourceList title="Serviços" items={query.data?.data} loading={query.isLoading} error={query.error} search={(item, term) => item.nome.toLowerCase().includes(term)} render={(item) => <article className="resource-row" key={item.id}><div><strong>{item.nome}</strong><span>Prazo médio: {item.tempo_medio_dias} dias</span></div><div><span>Pessoa {money.format(item.preco_varejo)}</span><span>Empresa {money.format(item.preco_atacado)}</span><button type="button" className="text-button" onClick={() => setEditing(item)}>Editar</button></div></article>} /></div>;
+}

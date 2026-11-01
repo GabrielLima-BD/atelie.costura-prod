@@ -1,0 +1,92 @@
+{
+  "info": {
+    "_postman_id": "d02c6fd2-2b64-4ea6-9d3b-atelier-api",
+    "name": "Ateliê - API REST",
+    "description": "Coleção da API do sistema de gestão do ateliê. Configure accessToken com um JWT emitido pelo Supabase Auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "serverUrl", "value": "http://localhost:3333" },
+    { "key": "baseUrl", "value": "http://localhost:3333/api/v1" },
+    { "key": "accessToken", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('status HTTP válido', function () { pm.expect(pm.response.code).to.be.within(200, 499); });",
+          "if (pm.response.code !== 204) { pm.test('resposta JSON', function () { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); }); }"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Sistema",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{serverUrl}}/health" },
+          "event": [{ "listen": "test", "script": { "type": "text", "exec": ["pm.test('API saudável', function () { pm.response.to.have.status(200); pm.expect(pm.response.json().status).to.eql('ok'); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Clientes",
+      "item": [
+        { "name": "Listar", "request": { "method": "GET", "url": "{{baseUrl}}/clientes?page=1&limit=20" } },
+        {
+          "name": "Criar",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"nome\":\"Cliente Postman\",\"telefone\":\"(51) 99999-0000\",\"tipo\":\"varejo\"}" },
+            "url": "{{baseUrl}}/clientes"
+          }
+        },
+        { "name": "Detalhar", "request": { "method": "GET", "url": "{{baseUrl}}/clientes/{{clienteId}}" } },
+        { "name": "Inativar", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"ativo\":false}" }, "url": "{{baseUrl}}/clientes/{{clienteId}}" } }
+      ]
+    },
+    {
+      "name": "Catálogo e estoque",
+      "item": [
+        { "name": "Listar serviços", "request": { "method": "GET", "url": "{{baseUrl}}/servicos" } },
+        { "name": "Criar serviço", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"nome\":\"Ajuste Postman\",\"preco_varejo\":30,\"preco_atacado\":24,\"tempo_medio_dias\":2}" }, "url": "{{baseUrl}}/servicos" } },
+        { "name": "Listar materiais", "request": { "method": "GET", "url": "{{baseUrl}}/materiais" } },
+        { "name": "Listar despesas", "request": { "method": "GET", "url": "{{baseUrl}}/despesas" } },
+        { "name": "Listar metas", "request": { "method": "GET", "url": "{{baseUrl}}/metas" } }
+      ]
+    },
+    {
+      "name": "Pedidos",
+      "item": [
+        { "name": "Listar com filtros", "request": { "method": "GET", "url": "{{baseUrl}}/pedidos?status=em_producao&atrasados=false&page=1&limit=20" } },
+        { "name": "Detalhar", "request": { "method": "GET", "url": "{{baseUrl}}/pedidos/{{pedidoId}}" } },
+        {
+          "name": "Criar com item",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"cliente_id\":\"{{clienteId}}\",\"data_entrada\":\"2026-11-01\",\"prazo_entrega\":\"2026-11-10\",\"tipo_venda\":\"varejo\",\"itens\":[{\"servico_id\":\"00000000-0000-0000-0000-000000000000\",\"descricao_peca\":\"Calça\",\"quantidade\":1,\"valor_unitario\":35}]}" }, "url": "{{baseUrl}}/pedidos" }
+        },
+        { "name": "Mudar status", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"aprovado\"}" }, "url": "{{baseUrl}}/pedidos/{{pedidoId}}/status" } },
+        { "name": "Registrar pagamento", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"valor\":35,\"forma\":\"pix\",\"data_pagamento\":\"2026-11-01\",\"tipo\":\"quitacao\"}" }, "url": "{{baseUrl}}/pedidos/{{pedidoId}}/pagamentos" } },
+        { "name": "Listar pagamentos", "request": { "method": "GET", "url": "{{baseUrl}}/pagamentos" } }
+      ]
+    },
+    {
+      "name": "Dashboard e relatórios",
+      "item": [
+        { "name": "Resumo", "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/resumo" } },
+        { "name": "Faturamento mensal", "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/faturamento-mensal" } },
+        { "name": "Prazos e atrasos", "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/prazos" } },
+        { "name": "Financeiro", "request": { "method": "GET", "url": "{{baseUrl}}/relatorios/financeiro?mes=11&ano=2026" } },
+        { "name": "Saldo do cliente", "request": { "method": "GET", "url": "{{baseUrl}}/relatorios/clientes/{{clienteId}}/saldo" } },
+        { "name": "Progresso de metas", "request": { "method": "GET", "url": "{{baseUrl}}/metas/progresso?mes=11&ano=2026" } }
+      ]
+    }
+  ]
+}
