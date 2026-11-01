@@ -59,6 +59,26 @@ npm run dev
 
 Preencha as variáveis do Supabase e, se necessário, ajuste `VITE_API_URL`. O frontend usa Supabase somente para login/sessão; dados de negócio sempre passam pela API REST.
 
+### Deploy no Vercel
+
+O repositório está configurado como um projeto Vercel único: o frontend Vite é
+gerado em `frontend/dist` e a API Express roda como uma Function em
+`api/[...path].ts`. Ao importar o repositório, mantenha **Root Directory**
+vazio (raiz do repositório) e use o commit mais recente. Configure no Vercel:
+
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sua-chave-publicavel
+VITE_API_URL=/api/v1
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_ANON_KEY=sua-chave-publicavel
+SUPABASE_SERVICE_ROLE_KEY=chave-apenas-no-servidor
+FRONTEND_ORIGIN=https://seu-projeto.vercel.app
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` deve ser cadastrada somente nas variáveis do
+Vercel e nunca no frontend ou no repositório.
+
 ## Postman
 
 Importe `postman/atelier.postman_collection.json` e `postman/atelier.postman_environment.json`. Selecione o environment **Ateliê - Local**, preencha `accessToken` com o JWT da sessão do usuário e execute as pastas na ordem desejada.
