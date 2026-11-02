@@ -26,6 +26,8 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     response.status(error.status).json({ error: { code: error.code, message: error.message } });
     return;
   }
-  console.error(error);
-  response.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno do servidor' } });
+  const message = error instanceof Error ? error.message : 'Erro interno do servidor';
+  const stack = error instanceof Error ? error.stack : undefined;
+  console.error(`[API_ERROR] ${message}`, stack);
+  response.status(500).json({ error: { code: 'INTERNAL_ERROR', message } });
 };

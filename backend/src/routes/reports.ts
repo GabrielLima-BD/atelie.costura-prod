@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { supabaseAdmin } from '../config/supabase.js';
+import { getSupabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middlewares/errors.js';
 import { idParam } from '../schemas/common.js';
 
 const router = Router();
 
 async function view(viewName: string) {
-  const { data, error } = await supabaseAdmin.from(viewName).select('*');
+  const { data, error } = await getSupabaseAdmin().from(viewName).select('*');
   if (error) throw new AppError(400, 'DATABASE_ERROR', error.message);
   return data;
 }
@@ -46,7 +46,7 @@ router.get('/relatorios/financeiro', async (_request, response, next) => {
 router.get('/relatorios/clientes/:id/saldo', async (request, response, next) => {
   try {
     const { id } = idParam.parse(request.params);
-    const { data, error } = await supabaseAdmin.from('vw_saldo_a_receber').select('*').eq('cliente_id', id);
+    const { data, error } = await getSupabaseAdmin().from('vw_saldo_a_receber').select('*').eq('cliente_id', id);
     if (error) throw new AppError(400, 'DATABASE_ERROR', error.message);
     response.json({ data });
   } catch (error) { next(error); }

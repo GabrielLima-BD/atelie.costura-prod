@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { supabaseAuth } from '../config/supabase.js';
+import { getSupabaseAuth } from '../config/supabase.js';
 import { AppError } from './errors.js';
 
 export const requireAuth: RequestHandler = async (request, _response, next) => {
@@ -8,7 +8,7 @@ export const requireAuth: RequestHandler = async (request, _response, next) => {
     if (!header?.startsWith('Bearer ')) {
       throw new AppError(401, 'UNAUTHORIZED', 'Token de acesso não informado');
     }
-    const { data, error } = await supabaseAuth.auth.getUser(header.slice(7));
+    const { data, error } = await getSupabaseAuth().auth.getUser(header.slice(7));
     if (error || !data.user) {
       throw new AppError(401, 'UNAUTHORIZED', 'Token de acesso inválido');
     }

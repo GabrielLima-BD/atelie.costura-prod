@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { supabaseAdmin } from '../config/supabase.js';
+import { getSupabaseAdmin } from '../config/supabase.js';
 import { AppError } from '../middlewares/errors.js';
 import { idParam, pagination, uuid } from '../schemas/common.js';
 
@@ -47,7 +47,7 @@ router.get('/pedidos', async (request, response, next) => {
     const { page, limit } = pagination.parse(request.query);
     const from = (page - 1) * limit;
     const to = from + limit - 1;
-    let query = supabaseAdmin.from('pedidos').select('*, clientes(nome, telefone), pedido_itens(*)', { count: 'exact' });
+    let query = getSupabaseAdmin().from('pedidos').select('*, clientes(nome, telefone), pedido_itens(*)', { count: 'exact' });
     const status = typeof request.query.status === 'string' ? request.query.status : undefined;
     const cliente = typeof request.query.cliente === 'string' ? request.query.cliente : undefined;
     const de = typeof request.query.de === 'string' ? request.query.de : undefined;
@@ -66,7 +66,7 @@ router.get('/pedidos', async (request, response, next) => {
 router.get('/pedidos/:id', async (request, response, next) => {
   try {
     const { id } = idParam.parse(request.params);
-    const { data, error } = await supabaseAdmin.from('pedidos')
+    const { data, error } = await getSupabaseAdmin().from('pedidos')
       .select('*, clientes(*), pedido_itens(*, servicos(*)), pagamentos(*)').eq('id', id).single();
     if (error || !data) throw new AppError(404, 'NOT_FOUND', 'Pedido não encontrado');
     response.json({ data });
@@ -77,11 +77,11 @@ router.post('/pedidos', async (request, response, next) => {
   try {
     const payload = orderSchema.parse(request.body);
     const { itens, ...order } = payload;
-    const { data: created, error } = await supabaseAdmin.from('pedidos').insert(order).select().single();
+    const { data: created, error } = await getSupabaseAdmin().from('pedidos').insert(order).select().single();
     if (error || !created) throw new AppError(400, 'DATABASE_ERROR', error?.message ?? 'Pedido não criado');
-    const { error: itemsError } = await supabaseAdmin.from('pedido_itens').insert(itens.map((item) => ({ ...item, pedido_id: created.id })));
+    const { error: itemsError } = await getSupabaseAdmin().from('pedido_itens').insert(itens.map((item) => ({ ...item, pedido_id: created.id })));
     if (itemsError) {
-      await supabaseAdmin.from('pedidos').delete().eq('id', created.id);
+      await getSupabaseAdmin().from('pedidos').delete().eq('id', created.id);
       throw new AppError(400, 'DATABASE_ERROR', itemsError.message);
     }
     response.status(201).json({ data: created });
@@ -92,10 +92,10 @@ router.patch('/pedidos/:id/status', async (request, response, next) => {
   try {
     const { id } = idParam.parse(request.params);
     const { status } = statusSchema.parse(request.body);
-    const { data: current, error: currentError } = await supabaseAdmin.from('pedidos').select('status').eq('id', id).single();
+    const { data: current, error: currentError } = await getSupabaseAdmin().from('pedidos').select('status').eq('id', id).single();
     if (currentError || !current) throw new AppError(404, 'NOT_FOUND', 'Pedido não encontrado');
     if (!transitions[current.status]?.includes(status)) throw new AppError(409, 'INVALID_TRANSITION', `Não é permitido mudar de ${current.status} para ${status}`);
-    const { data, error } = await supabaseAdmin.from('pedidos').update({ status }).eq('id', id).select().single();
+    const { data, error } = await getSupabaseAdmin().from('pedidos').update({ status }).eq('id', id).select().single();
     if (error) throw new AppError(400, 'DATABASE_ERROR', error.message);
     response.json({ data });
   } catch (error) { next(error); }
@@ -105,7 +105,7 @@ router.post('/pedidos/:id/pagamentos', async (request, response, next) => {
   try {
     const { id } = idParam.parse(request.params);
     const payload = paymentSchema.parse(request.body);
-    const { data, error } = await supabaseAdmin.from('pagamentos').insert({ ...payload, pedido_id: id }).select().single();
+    const { data, error } = await getSupabaseAdmin().from('pagamentos').insert({ ...payload, pedido_id: id }).select().single();
     if (error) throw new AppError(400, 'PAYMENT_ERROR', error.message);
     response.status(201).json({ data });
   } catch (error) { next(error); }
@@ -113,7 +113,7 @@ router.post('/pedidos/:id/pagamentos', async (request, response, next) => {
 
 router.get('/pagamentos', async (_request, response, next) => {
   try {
-    const { data, error } = await supabaseAdmin.from('pagamentos').select('*, pedidos(codigo)');
+    const { data, error } = await getSupabaseAdmin().from('pagamentos').select('*, pedidos(codigo)');
     if (error) throw new AppError(400, 'DATABASE_ERROR', error.message);
     response.json({ data });
   } catch (error) { next(error); }
