@@ -33,15 +33,6 @@ const paymentSchema = z.object({
 });
 
 const router = Router();
-const transitions: Record<string, string[]> = {
-  orcamento: ['aprovado', 'cancelado'],
-  aprovado: ['em_producao', 'cancelado'],
-  em_producao: ['pronto', 'cancelado'],
-  pronto: ['entregue'],
-  entregue: [],
-  cancelado: [],
-};
-
 router.get('/pedidos', async (request, response, next) => {
   try {
     const { page, limit } = pagination.parse(request.query);
@@ -52,10 +43,18 @@ router.get('/pedidos', async (request, response, next) => {
     const cliente = typeof request.query.cliente === 'string' ? request.query.cliente : undefined;
     const de = typeof request.query.de === 'string' ? request.query.de : undefined;
     const ate = typeof request.query.ate === 'string' ? request.query.ate : undefined;
+    const entregaDe = typeof request.query.entrega_de === 'string' ? request.query.entrega_de : undefined;
+    const entregaAte = typeof request.query.entrega_ate === 'string' ? request.query.entrega_ate : undefined;
+    const valorMin = typeof request.query.valor_min === 'string' ? Number(request.query.valor_min) : undefined;
+    const valorMax = typeof request.query.valor_max === 'string' ? Number(request.query.valor_max) : undefined;
     if (status) query = query.eq('status', status);
     if (cliente) query = query.eq('cliente_id', cliente);
     if (de) query = query.gte('data_entrada', de);
     if (ate) query = query.lte('data_entrada', ate);
+    if (entregaDe) query = query.gte('prazo_entrega', entregaDe);
+    if (entregaAte) query = query.lte('prazo_entrega', entregaAte);
+    if (valorMin !== undefined && Number.isFinite(valorMin)) query = query.gte('valor_total', valorMin);
+    if (valorMax !== undefined && Number.isFinite(valorMax)) query = query.lte('valor_total', valorMax);
     if (request.query.atrasados === 'true') query = query.lt('prazo_entrega', new Date().toISOString().slice(0, 10)).not('status', 'in', '("entregue","cancelado")');
     const { data, error, count } = await query.order('prazo_entrega', { ascending: true }).range(from, to);
     if (error) throw new AppError(400, 'DATABASE_ERROR', error.message);
@@ -88,13 +87,28 @@ router.post('/pedidos', async (request, response, next) => {
   } catch (error) { next(error); }
 });
 
+router.patch('/pedidos/:id', async (request, response, next) => {
+  try {
+    const { id } = idParam.parse(request.params);
+    const payload = orderSchema.parse(request.body);
+    const { itens, ...order } = payload;
+    const admin = getSupabaseAdmin();
+    const { data: updated, error } = await admin.from('pedidos').update(order).eq('id', id).select().single();
+    if (error || !updated) throw new AppError(404, 'NOT_FOUND', error?.message ?? 'Pedido não encontrado');
+    const { error: deleteError } = await admin.from('pedido_itens').delete().eq('pedido_id', id);
+    if (deleteError) throw new AppError(400, 'DATABASE_ERROR', deleteError.message);
+    const { error: itemsError } = await admin.from('pedido_itens').insert(itens.map((item) => ({ ...item, pedido_id: id })));
+    if (itemsError) throw new AppError(400, 'DATABASE_ERROR', itemsError.message);
+    response.json({ data: updated });
+  } catch (error) { next(error); }
+});
+
 router.patch('/pedidos/:id/status', async (request, response, next) => {
   try {
     const { id } = idParam.parse(request.params);
     const { status } = statusSchema.parse(request.body);
     const { data: current, error: currentError } = await getSupabaseAdmin().from('pedidos').select('status').eq('id', id).single();
     if (currentError || !current) throw new AppError(404, 'NOT_FOUND', 'Pedido não encontrado');
-    if (!transitions[current.status]?.includes(status)) throw new AppError(409, 'INVALID_TRANSITION', `Não é permitido mudar de ${current.status} para ${status}`);
     const { data, error } = await getSupabaseAdmin().from('pedidos').update({ status }).eq('id', id).select().single();
     if (error) throw new AppError(400, 'DATABASE_ERROR', error.message);
     response.json({ data });
