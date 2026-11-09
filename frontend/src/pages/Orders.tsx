@@ -213,8 +213,9 @@ export function Orders() {
     </section>
     <ResourceList title="Pedidos" items={query.data?.data} loading={query.isLoading} error={query.error} search={(item, term) => `${item.codigo} ${item.clientes?.nome ?? ''}`.toLowerCase().includes(term)} render={(item) => <article className="resource-row order-row" key={item.id} onDoubleClick={() => void openEdit(item)}>
       <div><strong>{item.codigo}</strong><span>{item.clientes?.nome ?? 'Cliente não informado'}</span></div>
-      <div><select className="status-select" value={item.status} onChange={(event) => statusMutation.mutate({ id: item.id, status: event.target.value })}><option value="orcamento">Orçamento</option><option value="aprovado">Aprovado</option><option value="em_producao">Em produção</option><option value="pronto">Pronto</option><option value="entregue">Entregue</option><option value="cancelado">Cancelado</option></select><span>{new Date(`${item.prazo_entrega}T12:00:00`).toLocaleDateString('pt-BR')}</span></div>
-      <strong>{money.format(item.valor_total)}</strong><button className="secondary-button" onClick={() => void openEdit(item)}>Editar</button>
+      <select className="status-select" value={item.status} onChange={(event) => statusMutation.mutate({ id: item.id, status: event.target.value })}><option value="orcamento">Orçamento</option><option value="aprovado">Aprovado</option><option value="em_producao">Em produção</option><option value="pronto">Pronto</option><option value="entregue">Entregue</option><option value="cancelado">Cancelado</option></select>
+      <span className="order-due-date">{new Date(`${item.prazo_entrega}T12:00:00`).toLocaleDateString('pt-BR')}</span>
+      <strong className="order-total">{money.format(item.valor_total)}</strong><button className="secondary-button" onClick={() => void openEdit(item)}>Editar</button>
     </article>} />
   </div>;
 }
